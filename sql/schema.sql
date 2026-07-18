@@ -8,6 +8,8 @@
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
+  role text not null default 'consultora', -- 'consultora' ou 'diretora'
+  phone text,
   created_at timestamptz default now()
 );
 
@@ -15,8 +17,13 @@ create table if not exists profiles (
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, full_name)
-  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', new.email));
+  insert into public.profiles (id, full_name, role, phone)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'full_name', new.email),
+    coalesce(new.raw_user_meta_data->>'role', 'consultora'),
+    new.raw_user_meta_data->>'phone'
+  );
   return new;
 end;
 $$ language plpgsql security definer;
@@ -107,6 +114,17 @@ create table if not exists campaigns (
   start_date date,
   end_date date,
   forced_inactive boolean default false,
+  created_at timestamptz default now()
+);
+
+-- Agenda de treinamentos (criada pela diretora, visível para toda a equipe)
+create table if not exists trainings (
+  id bigint generated always as identity primary key,
+  title text not null,
+  description text,
+  training_date date not null,
+  training_time time,
+  created_by uuid references auth.users(id) default auth.uid(),
   created_at timestamptz default now()
 );
 
@@ -362,6 +380,7 @@ alter table purchase_orders enable row level security;
 alter table purchase_order_items enable row level security;
 alter table campaigns enable row level security;
 alter table settings enable row level security;
+alter table trainings enable row level security;
 
 create policy "profiles_select" on profiles for select using (auth.role() = 'authenticated');
 create policy "profiles_update_own" on profiles for update using (auth.uid() = id);
@@ -385,4 +404,16 @@ create policy "sale_items_insert_own" on sale_items for insert with check (
 );
 create policy "sale_items_delete_own" on sale_items for delete using (
   exists (select 1 from sales s where s.id = sale_id and s.seller_id = auth.uid())
+);
+
+-- Treinamentos: toda a equipe vê a agenda, só quem é diretora cria/edita/exclui.
+create policy "trainings_select" on trainings for select using (auth.role() = 'authenticated');
+create policy "trainings_insert_diretora" on trainings for insert with check (
+  exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'diretora')
+);
+create policy "trainings_update_diretora" on trainings for update using (
+  exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'diretora')
+);
+create policy "trainings_delete_diretora" on trainings for delete using (
+  exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'diretora')
 );

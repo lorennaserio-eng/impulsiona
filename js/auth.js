@@ -48,6 +48,8 @@ document.getElementById('authForm').addEventListener('submit', async e=>{
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
   const fullName = document.getElementById('authName').value.trim();
+  const phone = document.getElementById('authPhone').value.trim();
+  const isDirector = document.getElementById('authIsDirector').checked;
   const mode = document.getElementById('authMode').value; // 'login' ou 'signup'
   const msg = document.getElementById('authMessage');
   msg.textContent = '';
@@ -56,7 +58,11 @@ document.getElementById('authForm').addEventListener('submit', async e=>{
   if(mode === 'signup'){
     const { error } = await supabaseClient.auth.signUp({
       email, password,
-      options: { data: { full_name: fullName || email } }
+      options: { data: {
+        full_name: fullName || email,
+        phone: phone || null,
+        role: isDirector ? 'diretora' : 'consultora'
+      } }
     });
     if(error){ msg.textContent = traduzErroAuth(error.message); return; }
     msg.style.color = 'var(--primary-dark)';
@@ -73,6 +79,8 @@ document.getElementById('toggleAuthMode').addEventListener('click', ()=>{
   modeInput.value = isLogin ? 'signup' : 'login';
   document.getElementById('authSubmitBtn').textContent = isLogin ? 'Criar conta' : 'Entrar';
   document.getElementById('authNameField').style.display = isLogin ? 'block' : 'none';
+  document.getElementById('authPhoneField').style.display = isLogin ? 'block' : 'none';
+  document.getElementById('authRoleField').style.display = isLogin ? 'block' : 'none';
   document.getElementById('toggleAuthMode').textContent = isLogin ? 'Já tenho conta' : 'Criar uma conta nova';
   document.getElementById('authTitle').textContent = isLogin ? 'Criar conta' : 'Entrar no Controle de Vendas';
   document.getElementById('authMessage').textContent = '';

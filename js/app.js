@@ -13,6 +13,8 @@ function escapeHtml(str){
 function currentMonthKey(){ return todayISO().slice(0,7); }
 
 /* ================= BOOT (chamado depois do login) ================= */
+let currentUserRole = 'consultora';
+
 async function bootApp(){
   try{
     await refreshAll();
@@ -20,6 +22,10 @@ async function bootApp(){
     alert('Não foi possível carregar os dados do Supabase: ' + err.message);
     return;
   }
+  const myProfile = state.profiles.find(p=>p.id === currentUser.id);
+  currentUserRole = myProfile ? myProfile.role : 'consultora';
+  document.getElementById('navEquipe').style.display = currentUserRole === 'diretora' ? '' : 'none';
+
   document.getElementById('saleItemsWrap').innerHTML = '';
   addSaleItemRow();
   document.getElementById('poItemsWrap').innerHTML = '';
@@ -46,6 +52,7 @@ function showView(name){
   if(name==='pedidos') renderPurchaseView();
   if(name==='relatorios') renderReportDefaults();
   if(name==='automacao') loadAutomationForm();
+  if(name==='equipe') renderTeamManagement();
 }
 
 /* ================= PRODUTOS ================= */
@@ -476,6 +483,7 @@ function renderDashboard(){
   renderBirthdays();
   renderCampaigns();
   renderTeamPerformance(monthKey);
+  renderUpcomingTrainings();
 
   const days = [];
   for(let i=13;i>=0;i--){
@@ -652,6 +660,158 @@ function renderTeamPerformance(monthKey){
   ranking.forEach(([seller, dados])=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${escapeHtml(seller)}</td><td>${dados.count}</td><td>R$ ${money(dados.total)}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+/* --- Próximos treinamentos (visível para toda a equipe) --- */
+function renderUpcomingTrainings(){
+  const body = document.getElementById('upcomingTrainingsBody');
+  if(!body) return;
+  body.innerHTML = '';
+  const today = todayISO();
+  const list = state.trainings.filter(t=>t.date >= today).slice().sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
+  document.getElementById('upcomingTrainingsEmpty').style.display = list.length ? 'none' : 'block';
+  list.forEach(t=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${formatDate(t.date)}${t.time ? ' às '+t.time.slice(0,5) : ''}</td>
+      <td>${escapeHtml(t.title)}</td>
+      <td>${escapeHtml(t.description || '-')}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+/* ================= GESTÃO DA EQUIPE (só diretora) ================= */
+function renderTeamManagement(){
+  renderTeamUnitCards();
+  renderTeamRoster();
+  renderNewSignups();
+  renderMonthlyEvolution();
+  renderTrainings();
+}
+
+function renderTeamUnitCards(){
+  const monthKey = currentMonthKey();
+  const vendasMes = state.sales.filter(s=>s.status==='Pago' && s.date.startsWith(monthKey));
+  const faturamentoMes = vendasMes.reduce((sum,s)=>sum+s.total,0);
+  const ativasIds = new Set(vendasMes.map(s=>s.sellerId).filter(Boolean));
+  const cards = document.getElementById('teamUnitCards');
+  cards.innerHTML = `
+    <div class="card"><div class="label">Faturamento da unidade (mês)</div><div class="value">R$ ${money(faturamentoMes)}</div></div>
+    <div class="card"><div class="label">Vendas da unidade (mês)</div><div class="value">${vendasMes.length}</div></div>
+    <div class="card"><div class="label">Consultoras ativas</div><div class="value">${ativasIds.size} de ${state.profiles.length}</div></div>
+  `;
+}
+
+function renderTeamRoster(){
+  const monthKey = currentMonthKey();
+  const body = document.getElementById('teamRosterBody');
+  body.innerHTML = '';
+  document.getElementById('teamRosterEmpty').style.display = state.profiles.length ? 'none' : 'block';
+  state.profiles.slice().sort((a,b)=>a.fullName.localeCompare(b.fullName)).forEach(p=>{
+    const vendasMes = state.sales.filter(s=>s.status==='Pago' && s.date.startsWith(monthKey) && s.sellerId===p.id);
+    const total = vendasMes.reduce((sum,s)=>sum+s.total,0);
+    const ativa = vendasMes.length > 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(p.fullName)}</td>
+      <td>${escapeHtml(p.phone || '-')}</td>
+      <td>${p.role === 'diretora' ? 'Diretora' : 'Consultora'}</td>
+      <td>${formatDate(p.createdAt.slice(0,10))}</td>
+      <td>${vendasMes.length}</td>
+      <td>R$ ${money(total)}</td>
+      <td><span class="badge ${ativa ? 'pago' : 'pendente'}">${ativa ? 'Ativa' : 'Inativa'}</span></td>`;
+    body.appendChild(tr);
+  });
+}
+
+function renderNewSignups(){
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate()-30);
+  const cutoffISO = cutoff.toISOString().slice(0,10);
+  const recentes = state.profiles.filter(p=>p.createdAt.slice(0,10) >= cutoffISO)
+    .slice().sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+  const body = document.getElementById('newSignupsBody');
+  body.innerHTML = '';
+  document.getElementById('newSignupsEmpty').style.display = recentes.length ? 'none' : 'block';
+  recentes.forEach(p=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(p.fullName)}</td><td>${formatDate(p.createdAt.slice(0,10))}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+let monthlyEvolutionChartInstance = null;
+function renderMonthlyEvolution(){
+  const months = [];
+  for(let i=5;i>=0;i--){
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth()-i);
+    months.push(d.toISOString().slice(0,7));
+  }
+  const totals = months.map(m=>
+    state.sales.filter(s=>s.status==='Pago' && s.date.startsWith(m)).reduce((sum,s)=>sum+s.total,0)
+  );
+  const labels = months.map(m=>{
+    const [y,mo] = m.split('-');
+    return new Date(Number(y), Number(mo)-1, 1).toLocaleDateString('pt-BR',{month:'short', year:'2-digit'});
+  });
+  const canvas = document.getElementById('monthlyEvolutionChart');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if(monthlyEvolutionChartInstance) monthlyEvolutionChartInstance.destroy();
+  monthlyEvolutionChartInstance = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[{ label:'Faturamento (R$)', data: totals, borderColor:'#16a34a', backgroundColor:'rgba(22,163,74,.15)', fill:true, tension:.3 }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true } } }
+  });
+}
+
+document.getElementById('trainingForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const title = document.getElementById('trainingTitle').value.trim();
+  const date = document.getElementById('trainingDate').value;
+  const time = document.getElementById('trainingTime').value;
+  const description = document.getElementById('trainingDescription').value.trim();
+  if(!title || !date) return;
+  try{
+    await apiCreateTraining({title, date, time, description});
+    await refreshAll();
+    document.getElementById('trainingForm').reset();
+    renderTrainings();
+    renderUpcomingTrainings();
+  }catch(err){
+    alert('Erro ao criar treinamento: ' + err.message);
+  }
+});
+
+async function deleteTraining(id){
+  if(!confirm('Excluir este treinamento?')) return;
+  try{
+    await apiDeleteTraining(id);
+    await refreshAll();
+    renderTrainings();
+    renderUpcomingTrainings();
+  }catch(err){
+    alert('Erro ao excluir treinamento: ' + err.message);
+  }
+}
+
+function renderTrainings(){
+  const body = document.getElementById('trainingsBody');
+  if(!body) return;
+  body.innerHTML = '';
+  const list = state.trainings.slice().sort((a,b)=>a.date.localeCompare(b.date));
+  document.getElementById('trainingsEmpty').style.display = list.length ? 'none' : 'block';
+  list.forEach(t=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${formatDate(t.date)}${t.time ? ' às '+t.time.slice(0,5) : ''}</td>
+      <td>${escapeHtml(t.title)}</td>
+      <td>${escapeHtml(t.description || '-')}</td>
+      <td class="actions-cell"><button class="btn small danger" onclick="deleteTraining(${t.id})">Excluir</button></td>`;
     body.appendChild(tr);
   });
 }

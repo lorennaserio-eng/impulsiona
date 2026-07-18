@@ -5,11 +5,11 @@
 
 let state = {
   products: [], customers: [], sales: [], campaigns: [],
-  stockMovements: [], purchaseOrders: [], settings: {}, profiles: {}
+  stockMovements: [], purchaseOrders: [], settings: {}, profiles: [], trainings: []
 };
 
 async function refreshAll(){
-  const [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles] = await Promise.all([
+  const [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles, trainings] = await Promise.all([
     supabaseClient.from('products').select('*').order('name'),
     supabaseClient.from('customers').select('*').order('name'),
     supabaseClient.from('sales').select('*').order('sale_date', {ascending:true}),
@@ -20,9 +20,10 @@ async function refreshAll(){
     supabaseClient.from('purchase_order_items').select('*'),
     supabaseClient.from('settings').select('*').eq('id','global').maybeSingle(),
     supabaseClient.from('profiles').select('*'),
+    supabaseClient.from('trainings').select('*').order('training_date'),
   ]);
 
-  [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles].forEach(r=>{
+  [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles, trainings].forEach(r=>{
     if(r.error) console.error('Erro ao carregar dados do Supabase:', r.error.message);
   });
 
@@ -42,7 +43,9 @@ async function refreshAll(){
 
   const profileById = {};
   (profiles.data||[]).forEach(p=> profileById[p.id] = p.full_name);
-  state.profiles = profileById;
+  state.profiles = (profiles.data||[]).map(p=>({
+    id: p.id, fullName: p.full_name, role: p.role || 'consultora', phone: p.phone, createdAt: p.created_at
+  }));
 
   state.products = (products.data||[]).map(p=>({
     id: p.id, name: p.name, price: Number(p.price), stock: p.stock, minStock: p.min_stock
@@ -71,6 +74,10 @@ async function refreshAll(){
   state.purchaseOrders = (purchaseOrders.data||[]).map(po=>({
     id: po.id, date: po.order_date, orderNumber: po.order_number, totalCost: Number(po.total_cost),
     items: poItemsByOrder[po.id] || []
+  }));
+
+  state.trainings = (trainings.data||[]).map(t=>({
+    id: t.id, title: t.title, description: t.description, date: t.training_date, time: t.training_time
   }));
 
   state.settings = settingsRow.data ? {
@@ -179,6 +186,18 @@ async function apiDeleteCampaign(id){
 /* ---------- Configurações ---------- */
 async function apiSaveSettings(patch){
   const { error } = await supabaseClient.from('settings').update(patch).eq('id', 'global');
+  if(error) throw error;
+}
+
+/* ---------- Treinamentos (agenda da equipe) ---------- */
+async function apiCreateTraining(t){
+  const { error } = await supabaseClient.from('trainings').insert({
+    title: t.title, description: t.description || null, training_date: t.date, training_time: t.time || null
+  });
+  if(error) throw error;
+}
+async function apiDeleteTraining(id){
+  const { error } = await supabaseClient.from('trainings').delete().eq('id', id);
   if(error) throw error;
 }
 

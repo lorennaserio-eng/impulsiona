@@ -20,6 +20,16 @@
         <label>Seu nome</label>
         <input type="text" id="authName" placeholder="Como a equipe vai te ver nos relatórios">
       </div>
+      <div class="field" id="authPhoneField" style="display:none;">
+        <label>Telefone (opcional)</label>
+        <input type="text" id="authPhone">
+      </div>
+      <div class="field" id="authRoleField" style="display:none;">
+        <label style="flex-direction:row;align-items:center;display:flex;gap:8px;">
+          <input type="checkbox" id="authIsDirector" style="width:auto;">
+          Sou diretora de equipe (gerencio outras consultoras)
+        </label>
+      </div>
       <div class="field">
         <label>E-mail</label>
         <input type="email" id="authEmail" required>
@@ -54,6 +64,7 @@
   <button data-view="pedidos">Pedidos MK</button>
   <button data-view="relatorios">Relatórios</button>
   <button data-view="automacao">Automação</button>
+  <button data-view="equipe" id="navEquipe" style="display:none;">Equipe</button>
 </nav>
 
 <main>
@@ -110,6 +121,15 @@
         <tbody id="campaignsBody"></tbody>
       </table>
       <div class="empty" id="campaignsEmpty" style="display:none;">Nenhuma campanha cadastrada.</div>
+    </div>
+
+    <div class="panel">
+      <h2>📅 Próximos treinamentos</h2>
+      <table>
+        <thead><tr><th>Data</th><th>Título</th><th>Descrição</th></tr></thead>
+        <tbody id="upcomingTrainingsBody"></tbody>
+      </table>
+      <div class="empty" id="upcomingTrainingsEmpty" style="display:none;">Nenhum treinamento agendado.</div>
     </div>
 
     <div class="panel">
@@ -327,6 +347,53 @@
       </table>
       <div class="empty" id="reportEmpty" style="display:none;">Nenhuma venda no período selecionado.</div>
       <button type="button" class="btn secondary" id="exportCsv" style="margin-top:12px;">Exportar CSV</button>
+    </div>
+  </section>
+
+  <!-- GESTÃO DA EQUIPE (visível só para diretoras) -->
+  <section id="view-equipe" class="view">
+    <div class="cards" id="teamUnitCards"></div>
+
+    <div class="panel">
+      <h2>👩‍💼 Consultoras da equipe</h2>
+      <table>
+        <thead><tr><th>Nome</th><th>Telefone</th><th>Papel</th><th>Entrou em</th><th>Vendas no mês</th><th>Faturamento no mês</th><th>Atividade</th></tr></thead>
+        <tbody id="teamRosterBody"></tbody>
+      </table>
+      <div class="empty" id="teamRosterEmpty" style="display:none;">Nenhuma consultora cadastrada ainda.</div>
+      <p class="hint">"Ativa" = registrou ao menos uma venda paga no mês atual.</p>
+    </div>
+
+    <div class="panel">
+      <h2>🆕 Novos cadastros (últimos 30 dias)</h2>
+      <table>
+        <thead><tr><th>Nome</th><th>Entrou em</th></tr></thead>
+        <tbody id="newSignupsBody"></tbody>
+      </table>
+      <div class="empty" id="newSignupsEmpty" style="display:none;">Nenhum cadastro novo nos últimos 30 dias.</div>
+    </div>
+
+    <div class="panel">
+      <h2>📈 Evolução mensal da unidade</h2>
+      <div class="chart-wrap"><canvas id="monthlyEvolutionChart" height="90"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <h2>📅 Agenda de treinamentos</h2>
+      <form id="trainingForm">
+        <div class="row">
+          <div class="field"><label>Título</label><input type="text" id="trainingTitle" required></div>
+          <div class="field"><label>Data</label><input type="date" id="trainingDate" required></div>
+          <div class="field"><label>Horário (opcional)</label><input type="time" id="trainingTime"></div>
+        </div>
+        <div class="field"><label>Descrição (opcional)</label><input type="text" id="trainingDescription"></div>
+        <button type="submit" class="btn">Adicionar treinamento</button>
+      </form>
+      <table style="margin-top:14px;">
+        <thead><tr><th>Data</th><th>Título</th><th>Descrição</th><th></th></tr></thead>
+        <tbody id="trainingsBody"></tbody>
+      </table>
+      <div class="empty" id="trainingsEmpty" style="display:none;">Nenhum treinamento agendado.</div>
     </div>
   </section>
 
