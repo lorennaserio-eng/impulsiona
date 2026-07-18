@@ -343,6 +343,16 @@
       </table>
       <div class="empty" id="businessProspectsEmpty" style="display:none;">Nenhuma cliente marcada como potencial no momento.</div>
     </div>
+
+    <div class="panel">
+      <h2>📞 Acompanhamento 2+2+2</h2>
+      <p class="hint">Toda venda com cliente identificada gera automaticamente 3 lembretes de acompanhamento: 2 dias, 2 semanas e 2 meses depois da compra.</p>
+      <table>
+        <thead><tr><th>Cliente</th><th>Venda</th><th>Estágio</th><th>Situação</th><th></th></tr></thead>
+        <tbody id="followupsBody"></tbody>
+      </table>
+      <div class="empty" id="followupsEmpty" style="display:none;">Nenhum acompanhamento pendente no momento.</div>
+    </div>
   </section>
 
   <!-- PEDIDOS MARY KAY -->
@@ -511,6 +521,7 @@
         <option value="reposicao">Lembrete de reposição</option>
         <option value="reengajamento">Reengajar cliente sumida</option>
         <option value="oportunidade">Convite: carreira Mary Kay</option>
+        <option value="acompanhamento">Acompanhamento 2+2+2</option>
         <option value="livre">Mensagem livre</option>
       </select>
     </div>
@@ -555,6 +566,24 @@
     <div class="modal-actions">
       <button type="button" class="btn secondary" id="closeClientDetail">Fechar</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL: Registrar contato do Acompanhamento 2+2+2 -->
+<div class="modal-overlay" id="followupRegisterOverlay">
+  <div class="modal-box">
+    <h2>Registrar contato</h2>
+    <p class="hint" id="followupRegisterInfo"></p>
+    <form id="followupRegisterForm">
+      <div class="field">
+        <label>Resposta / observação (opcional)</label>
+        <textarea id="followupRegisterNote" placeholder="Ex: gostou do produto, quer recomprar em 30 dias..."></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn secondary" id="closeFollowupRegister">Cancelar</button>
+        <button type="submit" class="btn">Marcar como feito</button>
+      </div>
+    </form>
   </div>
 </div>
 

@@ -5,11 +5,11 @@
 
 let state = {
   products: [], customers: [], sales: [], campaigns: [],
-  stockMovements: [], purchaseOrders: [], settings: {}, profiles: [], trainings: []
+  stockMovements: [], purchaseOrders: [], settings: {}, profiles: [], trainings: [], followups: []
 };
 
 async function refreshAll(){
-  const [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles, trainings] = await Promise.all([
+  const [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles, trainings, followups] = await Promise.all([
     supabaseClient.from('products').select('*').order('name'),
     supabaseClient.from('customers').select('*').order('name'),
     supabaseClient.from('sales').select('*').order('sale_date', {ascending:true}),
@@ -21,9 +21,10 @@ async function refreshAll(){
     supabaseClient.from('settings').select('*').eq('id','global').maybeSingle(),
     supabaseClient.from('profiles').select('*'),
     supabaseClient.from('trainings').select('*').order('training_date'),
+    supabaseClient.from('followups').select('*'),
   ]);
 
-  [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles, trainings].forEach(r=>{
+  [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles, trainings, followups].forEach(r=>{
     if(r.error) console.error('Erro ao carregar dados do Supabase:', r.error.message);
   });
 
@@ -86,6 +87,13 @@ async function refreshAll(){
 
   state.trainings = (trainings.data||[]).map(t=>({
     id: t.id, title: t.title, description: t.description, date: t.training_date, time: t.training_time
+  }));
+
+  state.followups = (followups.data||[]).map(f=>({
+    id: f.id, saleId: f.sale_id, customerId: f.customer_id,
+    due2Dias: f.due_2_dias, done2Dias: f.done_2_dias, note2Dias: f.note_2_dias,
+    due2Semanas: f.due_2_semanas, done2Semanas: f.done_2_semanas, note2Semanas: f.note_2_semanas,
+    due2Meses: f.due_2_meses, done2Meses: f.done_2_meses, note2Meses: f.note_2_meses
   }));
 
   state.settings = settingsRow.data ? {
@@ -213,6 +221,15 @@ async function apiCreateTraining(t){
 }
 async function apiDeleteTraining(id){
   const { error } = await supabaseClient.from('trainings').delete().eq('id', id);
+  if(error) throw error;
+}
+
+/* ---------- Acompanhamento pós-venda (Método 2+2+2) ---------- */
+async function apiCompleteFollowupStage(followupId, dbColumnSuffix, note){
+  const patch = {};
+  patch[`done_${dbColumnSuffix}`] = true;
+  patch[`note_${dbColumnSuffix}`] = note || null;
+  const { error } = await supabaseClient.from('followups').update(patch).eq('id', followupId);
   if(error) throw error;
 }
 

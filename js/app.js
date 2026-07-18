@@ -303,7 +303,80 @@ function renderCustomers(){
   renderReplenishReminders();
   renderInactiveCustomers();
   renderBusinessProspects();
+  renderFollowups();
 }
+
+/* --- Acompanhamento pós-venda (Método 2+2+2) --- */
+const FOLLOWUP_STAGES = {
+  '2_dias': {due:'due2Dias', done:'done2Dias', note:'note2Dias', label:'2 dias'},
+  '2_semanas': {due:'due2Semanas', done:'done2Semanas', note:'note2Semanas', label:'2 semanas'},
+  '2_meses': {due:'due2Meses', done:'done2Meses', note:'note2Meses', label:'2 meses'}
+};
+
+function renderFollowups(){
+  const body = document.getElementById('followupsBody');
+  if(!body) return;
+  body.innerHTML = '';
+  const hoje = todayISO();
+  const pendentes = [];
+
+  state.followups.forEach(f=>{
+    const c = state.customers.find(c=>c.id===f.customerId);
+    if(!c) return;
+    const s = state.sales.find(s=>s.id===f.saleId);
+    Object.entries(FOLLOWUP_STAGES).forEach(([stage, keys])=>{
+      if(f[keys.due] <= hoje && !f[keys.done]){
+        pendentes.push({followup:f, stage, keys, customer:c, sale:s});
+      }
+    });
+  });
+
+  pendentes.sort((a,b)=> a.followup[a.keys.due].localeCompare(b.followup[b.keys.due]));
+
+  document.getElementById('followupsEmpty').style.display = pendentes.length ? 'none' : 'block';
+  pendentes.forEach(p=>{
+    const due = p.followup[p.keys.due];
+    const dias = Math.floor((new Date(hoje) - new Date(due)) / (1000*60*60*24));
+    const situacao = dias <= 0 ? 'Hoje' : `${dias} dia(s) atrasado`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(p.customer.name)}</td>
+      <td>${p.sale ? formatDate(p.sale.date) : '-'}</td>
+      <td>${p.keys.label}</td>
+      <td>${situacao}</td>
+      <td class="actions-cell">
+        <button class="btn small secondary" onclick="openFollowupRegister(${p.followup.id}, '${p.stage}')">Registrar contato</button>
+        ${p.customer.phone ? `<button class="btn small whatsapp" onclick="openComposer({customerId:${p.customer.id}, saleId:${p.sale ? p.sale.id : 'null'}, scenario:'acompanhamento', extra:{estagio:'${p.keys.label}'}})">WhatsApp</button>` : ''}
+      </td>`;
+    body.appendChild(tr);
+  });
+}
+
+let followupCtx = {};
+function openFollowupRegister(followupId, stage){
+  const f = state.followups.find(f=>f.id===followupId);
+  if(!f) return;
+  const c = state.customers.find(c=>c.id===f.customerId);
+  followupCtx = {followupId, stage};
+  document.getElementById('followupRegisterInfo').textContent = `${c ? c.name : 'Cliente'} — contato de ${FOLLOWUP_STAGES[stage].label}`;
+  document.getElementById('followupRegisterNote').value = '';
+  document.getElementById('followupRegisterOverlay').classList.add('active');
+}
+document.getElementById('closeFollowupRegister').addEventListener('click', ()=>{
+  document.getElementById('followupRegisterOverlay').classList.remove('active');
+});
+document.getElementById('followupRegisterForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const note = document.getElementById('followupRegisterNote').value.trim();
+  try{
+    await apiCompleteFollowupStage(followupCtx.followupId, followupCtx.stage, note);
+    await refreshAll();
+    document.getElementById('followupRegisterOverlay').classList.remove('active');
+    renderFollowups();
+  }catch(err){
+    alert('Erro ao registrar contato: ' + err.message);
+  }
+});
 
 function renderBusinessProspects(){
   const body = document.getElementById('businessProspectsBody');
@@ -1222,6 +1295,11 @@ const MESSAGE_TEMPLATES = {
     profissional: d => `Olá ${d.nome}, tudo bem? Notei seu interesse pelos produtos Mary Kay e gostaria de te convidar para conhecer a oportunidade de se tornar uma consultora de beleza independente. Posso te contar mais detalhes?`,
     amigavel: d => `Oi ${d.nome}! 😊 Já pensou em ganhar uma renda extra vendendo os produtos que você já ama? Bora bater um papo sobre a carreira Mary Kay?`,
     direto: d => `Olá ${d.nome}, tenho uma oportunidade de carreira Mary Kay que pode te interessar. Podemos conversar?`
+  },
+  acompanhamento: {
+    profissional: d => `Olá ${d.nome}, tudo bem? Já se passaram ${d.estagio} desde sua compra (${d.itens}) e gostaria de saber como está sendo sua experiência com os produtos. Ficou com alguma dúvida?`,
+    amigavel: d => `Oi ${d.nome}! 😊 Faz ${d.estagio} que você comprou (${d.itens}) — como tá sendo usar os produtos? Qualquer dúvida, só chamar!`,
+    direto: d => `Olá ${d.nome}, como está sua experiência com ${d.itens}? Alguma dúvida?`
   },
   livre: {
     profissional: d => `Olá ${d.nome}, `,

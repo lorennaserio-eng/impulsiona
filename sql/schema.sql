@@ -136,6 +136,24 @@ create table if not exists trainings (
   created_at timestamptz default now()
 );
 
+-- Acompanhamento pós-venda (Método 2+2+2): criado automaticamente por
+-- register_sale() para cada venda com cliente identificado.
+create table if not exists followups (
+  id bigint generated always as identity primary key,
+  sale_id bigint references sales(id) on delete cascade,
+  customer_id bigint references customers(id) on delete cascade,
+  due_2_dias date not null,
+  done_2_dias boolean not null default false,
+  note_2_dias text,
+  due_2_semanas date not null,
+  done_2_semanas boolean not null default false,
+  note_2_semanas text,
+  due_2_meses date not null,
+  done_2_meses boolean not null default false,
+  note_2_meses text,
+  created_at timestamptz default now()
+);
+
 -- Configurações gerais (meta mensal, automação WhatsApp)
 create table if not exists settings (
   id text primary key default 'global',
@@ -185,6 +203,11 @@ begin
     values (v_sale_id, v_product.id, v_product.name, (v_item->>'qty')::int, v_product.price, v_product.cost);
     update products set stock = stock - (v_item->>'qty')::int where id = v_product.id;
   end loop;
+
+  if p_customer_id is not null then
+    insert into followups (sale_id, customer_id, due_2_dias, due_2_semanas, due_2_meses)
+    values (v_sale_id, p_customer_id, p_date + 2, p_date + 14, (p_date + interval '2 months')::date);
+  end if;
 
   return v_sale_id;
 end;
@@ -391,6 +414,7 @@ alter table purchase_order_items enable row level security;
 alter table campaigns enable row level security;
 alter table settings enable row level security;
 alter table trainings enable row level security;
+alter table followups enable row level security;
 
 create policy "profiles_select" on profiles for select using (auth.role() = 'authenticated');
 create policy "profiles_update_own" on profiles for update using (auth.uid() = id);
@@ -427,3 +451,6 @@ create policy "trainings_update_diretora" on trainings for update using (
 create policy "trainings_delete_diretora" on trainings for delete using (
   exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'diretora')
 );
+
+-- Acompanhamento 2+2+2: compartilhado com toda a equipe (mesmo modelo dos clientes).
+create policy "followups_all" on followups for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
