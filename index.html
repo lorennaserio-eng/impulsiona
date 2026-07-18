@@ -61,6 +61,7 @@
   <button data-view="produtos">Produtos</button>
   <button data-view="vendas">Vendas</button>
   <button data-view="clientes">Clientes</button>
+  <button data-view="campanhas">Campanhas</button>
   <button data-view="pedidos">Pedidos MK</button>
   <button data-view="relatorios">Relatórios</button>
   <button data-view="automacao">Automação</button>
@@ -104,23 +105,6 @@
         <tbody id="birthdaysBody"></tbody>
       </table>
       <div class="empty" id="birthdaysEmpty" style="display:none;">Nenhum aniversariante cadastrado para este mês.</div>
-    </div>
-
-    <div class="panel">
-      <h2>📣 Campanhas</h2>
-      <form id="campaignForm">
-        <div class="row">
-          <div class="field"><label>Nome da campanha</label><input type="text" id="campaignName" required></div>
-          <div class="field"><label>Início</label><input type="date" id="campaignStart"></div>
-          <div class="field"><label>Fim</label><input type="date" id="campaignEnd"></div>
-        </div>
-        <button type="submit" class="btn">Adicionar campanha</button>
-      </form>
-      <table style="margin-top:14px;">
-        <thead><tr><th>Nome</th><th>Período</th><th>Status</th><th></th></tr></thead>
-        <tbody id="campaignsBody"></tbody>
-      </table>
-      <div class="empty" id="campaignsEmpty" style="display:none;">Nenhuma campanha cadastrada.</div>
     </div>
 
     <div class="panel">
@@ -352,6 +336,56 @@
         <tbody id="followupsBody"></tbody>
       </table>
       <div class="empty" id="followupsEmpty" style="display:none;">Nenhum acompanhamento pendente no momento.</div>
+    </div>
+  </section>
+
+  <!-- CAMPANHAS DE VENDAS -->
+  <section id="view-campanhas" class="view">
+    <div class="panel">
+      <h2>📣 Nova campanha</h2>
+      <form id="campaignForm">
+        <div class="row">
+          <div class="field"><label>Nome da campanha</label><input type="text" id="campaignName" required></div>
+          <div class="field"><label>Início</label><input type="date" id="campaignStart"></div>
+          <div class="field"><label>Fim</label><input type="date" id="campaignEnd"></div>
+          <div class="field"><label>Prêmio (opcional)</label><input type="text" id="campaignPrize" placeholder="Ex: Kit de maquiagem"></div>
+        </div>
+        <button type="submit" class="btn">Adicionar campanha</button>
+      </form>
+      <p class="hint">Para divulgar a campanha, use o botão WhatsApp com o cenário "Promoção / novidade" na aba Clientes — as vendas que vierem disso já contam automaticamente pra meta de cada consultora aqui.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Campanhas</h2>
+      <table>
+        <thead><tr><th>Nome</th><th>Período</th><th>Prêmio</th><th>Status</th><th></th></tr></thead>
+        <tbody id="campaignsBody"></tbody>
+      </table>
+      <div class="empty" id="campaignsEmpty" style="display:none;">Nenhuma campanha cadastrada.</div>
+    </div>
+
+    <div class="panel" id="campaignDetailPanel" style="display:none;">
+      <h2 id="campaignDetailName"></h2>
+      <p class="hint" id="campaignDetailInfo"></p>
+      <div class="cards" id="campaignDetailCards"></div>
+
+      <h3 style="font-size:14px;margin:16px 0 6px;">Minha meta nesta campanha</h3>
+      <form id="campaignGoalForm">
+        <div class="row">
+          <div class="field"><label>Meta de faturamento (R$)</label><input type="number" id="campaignGoalValue" min="0" step="0.01" required></div>
+          <div class="field" style="justify-content:flex-end;flex-direction:row;align-items:flex-end;">
+            <button type="submit" class="btn">Salvar minha meta</button>
+          </div>
+        </div>
+      </form>
+
+      <h3 style="font-size:14px;margin:16px 0 6px;">Ranking da campanha</h3>
+      <table>
+        <thead><tr><th>Consultora</th><th>Meta</th><th>Vendido no período</th><th>% da meta</th></tr></thead>
+        <tbody id="campaignGoalsBody"></tbody>
+      </table>
+      <div class="empty" id="campaignGoalsEmpty" style="display:none;">Ninguém definiu uma meta nesta campanha ainda.</div>
+      <button type="button" class="btn secondary" id="closeCampaignDetail" style="margin-top:12px;">Fechar detalhes</button>
     </div>
   </section>
 

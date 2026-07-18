@@ -49,6 +49,7 @@ function showView(name){
   if(name==='produtos') renderProducts();
   if(name==='vendas'){ renderCustomerOptions(); renderSales(); }
   if(name==='clientes') renderCustomers();
+  if(name==='campanhas') renderCampaigns();
   if(name==='pedidos') renderPurchaseView();
   if(name==='relatorios') renderReportDefaults();
   if(name==='automacao') loadAutomationForm();
@@ -721,7 +722,6 @@ function renderDashboard(){
 
   renderGoalProgress(faturamentoMes);
   renderBirthdays();
-  renderCampaigns();
   renderTeamPerformance(monthKey);
   renderUpcomingTrainings();
 
@@ -823,9 +823,10 @@ document.getElementById('campaignForm').addEventListener('submit', async e=>{
   const name = document.getElementById('campaignName').value.trim();
   const startDate = document.getElementById('campaignStart').value;
   const endDate = document.getElementById('campaignEnd').value;
+  const prize = document.getElementById('campaignPrize').value.trim();
   if(!name) return;
   try{
-    await apiCreateCampaign({name, startDate, endDate});
+    await apiCreateCampaign({name, startDate, endDate, prize});
     await refreshAll();
     document.getElementById('campaignForm').reset();
     renderCampaigns();
@@ -865,23 +866,110 @@ async function deleteCampaign(id){
 
 function renderCampaigns(){
   const body = document.getElementById('campaignsBody');
+  if(!body) return;
   body.innerHTML = '';
   document.getElementById('campaignsEmpty').style.display = state.campaigns.length ? 'none' : 'block';
-  state.campaigns.forEach(camp=>{
+  state.campaigns.slice().reverse().forEach(camp=>{
     const ativa = campaignIsActive(camp);
     const periodo = `${camp.startDate ? formatDate(camp.startDate) : '—'} a ${camp.endDate ? formatDate(camp.endDate) : '—'}`;
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHtml(camp.name)}</td>
       <td>${periodo}</td>
+      <td>${escapeHtml(camp.prize || '-')}</td>
       <td><span class="badge ${ativa ? 'pago' : 'pendente'}">${ativa ? 'Ativa' : 'Encerrada'}</span></td>
       <td class="actions-cell">
+        <button class="btn small secondary" onclick="openCampaignDetail(${camp.id})">Ver detalhes</button>
         ${ativa ? `<button class="btn small secondary" onclick="encerrarCampanha(${camp.id})">Encerrar agora</button>` : ''}
         <button class="btn small danger" onclick="deleteCampaign(${camp.id})">Excluir</button>
       </td>`;
     body.appendChild(tr);
   });
+  if(selectedCampaignId && state.campaigns.some(c=>c.id===selectedCampaignId)){
+    renderCampaignDetail(selectedCampaignId);
+  } else {
+    selectedCampaignId = null;
+    document.getElementById('campaignDetailPanel').style.display = 'none';
+  }
 }
+
+/* --- Detalhe da campanha: meta individual + ranking do período --- */
+let selectedCampaignId = null;
+
+function openCampaignDetail(id){
+  selectedCampaignId = id;
+  renderCampaignDetail(id);
+  document.getElementById('campaignDetailPanel').style.display = 'block';
+}
+document.getElementById('closeCampaignDetail').addEventListener('click', ()=>{
+  selectedCampaignId = null;
+  document.getElementById('campaignDetailPanel').style.display = 'none';
+});
+
+function renderCampaignDetail(id){
+  const camp = state.campaigns.find(c=>c.id===id);
+  if(!camp) return;
+
+  document.getElementById('campaignDetailName').textContent = camp.name;
+  const periodo = `${camp.startDate ? formatDate(camp.startDate) : '—'} a ${camp.endDate ? formatDate(camp.endDate) : '—'}`;
+  document.getElementById('campaignDetailInfo').textContent = camp.prize
+    ? `${periodo} · 🏆 Prêmio: ${camp.prize}`
+    : periodo;
+
+  const vendasPeriodo = state.sales.filter(s=>
+    s.status==='Pago' &&
+    (!camp.startDate || s.date >= camp.startDate) &&
+    (!camp.endDate || s.date <= camp.endDate)
+  );
+  const faturamentoPeriodo = vendasPeriodo.reduce((sum,s)=>sum+s.total,0);
+
+  let diasInfo = '';
+  if(camp.endDate){
+    const dias = Math.floor((new Date(camp.endDate) - new Date(todayISO())) / (1000*60*60*24));
+    diasInfo = dias >= 0 ? `${dias} dia(s) restantes` : 'Período encerrado';
+  }
+
+  document.getElementById('campaignDetailCards').innerHTML = `
+    <div class="card"><div class="label">Faturamento da campanha</div><div class="value">R$ ${money(faturamentoPeriodo)}</div></div>
+    <div class="card"><div class="label">Vendas no período</div><div class="value">${vendasPeriodo.length}</div></div>
+    ${diasInfo ? `<div class="card"><div class="label">Prazo</div><div class="value">${diasInfo}</div></div>` : ''}
+  `;
+
+  const myGoal = state.campaignGoals.find(g=>g.campaignId===id && g.sellerId===currentUser.id);
+  document.getElementById('campaignGoalValue').value = myGoal ? myGoal.goalValue : '';
+
+  const ranking = state.campaignGoals.filter(g=>g.campaignId===id).map(g=>{
+    const vendidoConsultora = vendasPeriodo.filter(s=>s.sellerId===g.sellerId).reduce((sum,s)=>sum+s.total,0);
+    const pct = g.goalValue > 0 ? (vendidoConsultora / g.goalValue) * 100 : 0;
+    return {...g, vendido: vendidoConsultora, pct};
+  }).sort((a,b)=>b.pct-a.pct);
+
+  const goalsBody = document.getElementById('campaignGoalsBody');
+  goalsBody.innerHTML = '';
+  document.getElementById('campaignGoalsEmpty').style.display = ranking.length ? 'none' : 'block';
+  ranking.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(r.sellerName)}</td>
+      <td>R$ ${money(r.goalValue)}</td>
+      <td>R$ ${money(r.vendido)}</td>
+      <td>${r.pct.toFixed(1)}%</td>`;
+    goalsBody.appendChild(tr);
+  });
+}
+
+document.getElementById('campaignGoalForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  if(!selectedCampaignId) return;
+  const val = parseFloat(document.getElementById('campaignGoalValue').value || '0');
+  try{
+    await apiSetCampaignGoal(selectedCampaignId, isNaN(val) ? 0 : val);
+    await refreshAll();
+    renderCampaignDetail(selectedCampaignId);
+  }catch(err){
+    alert('Erro ao salvar meta: ' + err.message);
+  }
+});
 
 /* --- Desempenho da equipe --- */
 function renderTeamPerformance(monthKey){

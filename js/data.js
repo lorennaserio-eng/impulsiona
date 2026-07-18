@@ -5,11 +5,11 @@
 
 let state = {
   products: [], customers: [], sales: [], campaigns: [],
-  stockMovements: [], purchaseOrders: [], settings: {}, profiles: [], trainings: [], followups: []
+  stockMovements: [], purchaseOrders: [], settings: {}, profiles: [], trainings: [], followups: [], campaignGoals: []
 };
 
 async function refreshAll(){
-  const [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles, trainings, followups] = await Promise.all([
+  const [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles, trainings, followups, campaignGoals] = await Promise.all([
     supabaseClient.from('products').select('*').order('name'),
     supabaseClient.from('customers').select('*').order('name'),
     supabaseClient.from('sales').select('*').order('sale_date', {ascending:true}),
@@ -22,9 +22,10 @@ async function refreshAll(){
     supabaseClient.from('profiles').select('*'),
     supabaseClient.from('trainings').select('*').order('training_date'),
     supabaseClient.from('followups').select('*'),
+    supabaseClient.from('campaign_goals').select('*'),
   ]);
 
-  [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles, trainings, followups].forEach(r=>{
+  [products, customers, sales, saleItems, campaigns, stockMovements, purchaseOrders, poItems, settingsRow, profiles, trainings, followups, campaignGoals].forEach(r=>{
     if(r.error) console.error('Erro ao carregar dados do Supabase:', r.error.message);
   });
 
@@ -72,7 +73,12 @@ async function refreshAll(){
   });
 
   state.campaigns = (campaigns.data||[]).map(c=>({
-    id: c.id, name: c.name, startDate: c.start_date, endDate: c.end_date, forcedInactive: c.forced_inactive
+    id: c.id, name: c.name, startDate: c.start_date, endDate: c.end_date, forcedInactive: c.forced_inactive, prize: c.prize || ''
+  }));
+
+  state.campaignGoals = (campaignGoals.data||[]).map(g=>({
+    id: g.id, campaignId: g.campaign_id, sellerId: g.seller_id, goalValue: Number(g.goal_value || 0),
+    sellerName: profileById[g.seller_id] || 'Consultora'
   }));
 
   state.stockMovements = (stockMovements.data||[]).map(m=>({
@@ -193,7 +199,7 @@ async function apiCreatePurchaseOrder(date, orderNumber, items){
 /* ---------- Campanhas ---------- */
 async function apiCreateCampaign(c){
   const { error } = await supabaseClient.from('campaigns').insert({
-    name: c.name, start_date: c.startDate || null, end_date: c.endDate || null
+    name: c.name, start_date: c.startDate || null, end_date: c.endDate || null, prize: c.prize || null
   });
   if(error) throw error;
 }
@@ -203,6 +209,13 @@ async function apiEndCampaign(id){
 }
 async function apiDeleteCampaign(id){
   const { error } = await supabaseClient.from('campaigns').delete().eq('id', id);
+  if(error) throw error;
+}
+async function apiSetCampaignGoal(campaignId, goalValue){
+  const { error } = await supabaseClient.from('campaign_goals').upsert(
+    { campaign_id: campaignId, seller_id: currentUser.id, goal_value: goalValue },
+    { onConflict: 'campaign_id,seller_id' }
+  );
   if(error) throw error;
 }
 

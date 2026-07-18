@@ -122,7 +122,18 @@ create table if not exists campaigns (
   start_date date,
   end_date date,
   forced_inactive boolean default false,
+  prize text, -- opcional: descrição do prêmio da campanha
   created_at timestamptz default now()
+);
+
+-- Meta individual de cada consultora dentro de uma campanha
+create table if not exists campaign_goals (
+  id bigint generated always as identity primary key,
+  campaign_id bigint references campaigns(id) on delete cascade,
+  seller_id uuid references auth.users(id) not null,
+  goal_value numeric(10,2) not null default 0,
+  created_at timestamptz default now(),
+  unique(campaign_id, seller_id)
 );
 
 -- Agenda de treinamentos (criada pela diretora, visível para toda a equipe)
@@ -415,6 +426,7 @@ alter table campaigns enable row level security;
 alter table settings enable row level security;
 alter table trainings enable row level security;
 alter table followups enable row level security;
+alter table campaign_goals enable row level security;
 
 create policy "profiles_select" on profiles for select using (auth.role() = 'authenticated');
 create policy "profiles_update_own" on profiles for update using (auth.uid() = id);
@@ -454,3 +466,9 @@ create policy "trainings_delete_diretora" on trainings for delete using (
 
 -- Acompanhamento 2+2+2: compartilhado com toda a equipe (mesmo modelo dos clientes).
 create policy "followups_all" on followups for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+-- Metas de campanha: todo mundo vê o ranking, mas cada consultora só mexe na própria meta.
+create policy "campaign_goals_select" on campaign_goals for select using (auth.role() = 'authenticated');
+create policy "campaign_goals_insert_own" on campaign_goals for insert with check (auth.uid() = seller_id);
+create policy "campaign_goals_update_own" on campaign_goals for update using (auth.uid() = seller_id);
+create policy "campaign_goals_delete_own" on campaign_goals for delete using (auth.uid() = seller_id);
