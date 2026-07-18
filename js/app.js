@@ -126,6 +126,15 @@ function renderProducts(){
   renderStockSummary();
   populateMovementProductOptions();
   renderStockMovements();
+  refreshSaleItemProductOptions();
+}
+
+function refreshSaleItemProductOptions(){
+  document.querySelectorAll('.sale-item-product').forEach(sel=>{
+    const current = sel.value;
+    sel.innerHTML = productOptionsHtml(current);
+    sel.value = current;
+  });
 }
 
 /* --- Controle de estoque: entrada/saída --- */
