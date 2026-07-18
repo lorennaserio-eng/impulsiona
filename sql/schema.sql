@@ -38,6 +38,7 @@ create table if not exists products (
   id bigint generated always as identity primary key,
   name text not null,
   price numeric(10,2) not null default 0,
+  cost numeric(10,2) not null default 0, -- preenchido automaticamente pelo último Pedido MK
   stock integer not null default 0,
   min_stock integer not null default 5,
   created_at timestamptz default now()
@@ -74,7 +75,8 @@ create table if not exists sale_items (
   product_id bigint references products(id),
   name text not null,
   qty integer not null,
-  price numeric(10,2) not null
+  price numeric(10,2) not null,
+  cost numeric(10,2) not null default 0 -- custo do produto no momento da venda (para calcular lucro)
 );
 
 -- Movimentações de estoque (entrada/saída manual)
@@ -172,8 +174,8 @@ begin
 
   for v_item in select * from jsonb_array_elements(p_items) loop
     select * into v_product from products where id = (v_item->>'product_id')::bigint;
-    insert into sale_items (sale_id, product_id, name, qty, price)
-    values (v_sale_id, v_product.id, v_product.name, (v_item->>'qty')::int, v_product.price);
+    insert into sale_items (sale_id, product_id, name, qty, price, cost)
+    values (v_sale_id, v_product.id, v_product.name, (v_item->>'qty')::int, v_product.price, v_product.cost);
     update products set stock = stock - (v_item->>'qty')::int where id = v_product.id;
   end loop;
 
@@ -219,12 +221,13 @@ begin
   for v_item in select * from jsonb_array_elements(p_items) loop
     select id into v_product_id from products where lower(name) = lower(v_item->>'name') limit 1;
     if v_product_id is null then
-      insert into products (name, price, stock, min_stock)
-      values (v_item->>'name', (v_item->>'unit_cost')::numeric, 0, 5)
+      insert into products (name, price, cost, stock, min_stock)
+      values (v_item->>'name', (v_item->>'unit_cost')::numeric, (v_item->>'unit_cost')::numeric, 0, 5)
       returning id into v_product_id;
     end if;
 
-    update products set stock = stock + (v_item->>'qty')::int where id = v_product_id
+    update products set stock = stock + (v_item->>'qty')::int, cost = (v_item->>'unit_cost')::numeric
+      where id = v_product_id
       returning stock into v_new_stock;
 
     insert into purchase_order_items (purchase_order_id, name, qty, unit_cost)

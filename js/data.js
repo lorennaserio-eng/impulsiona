@@ -30,7 +30,7 @@ async function refreshAll(){
   const itemsBySale = {};
   (saleItems.data||[]).forEach(i=>{
     (itemsBySale[i.sale_id] = itemsBySale[i.sale_id] || []).push({
-      productId: i.product_id, name: i.name, qty: i.qty, price: Number(i.price)
+      productId: i.product_id, name: i.name, qty: i.qty, price: Number(i.price), cost: Number(i.cost || 0)
     });
   });
 
@@ -48,19 +48,23 @@ async function refreshAll(){
   }));
 
   state.products = (products.data||[]).map(p=>({
-    id: p.id, name: p.name, price: Number(p.price), stock: p.stock, minStock: p.min_stock
+    id: p.id, name: p.name, price: Number(p.price), cost: Number(p.cost || 0), stock: p.stock, minStock: p.min_stock
   }));
 
   state.customers = (customers.data||[]).map(c=>({
     id: c.id, name: c.name, phone: c.phone, email: c.email, birthDate: c.birth_date
   }));
 
-  state.sales = (sales.data||[]).map(s=>({
-    id: s.id, date: s.sale_date, customerId: s.customer_id, total: Number(s.total),
-    payment: s.payment, status: s.status, sellerId: s.seller_id,
-    seller: s.legacy_seller_name || profileById[s.seller_id] || '-', notifiedAt: s.notified_at,
-    items: itemsBySale[s.id] || []
-  }));
+  state.sales = (sales.data||[]).map(s=>{
+    const items = itemsBySale[s.id] || [];
+    const profit = items.reduce((sum,i)=> sum + i.qty*(i.price - i.cost), 0);
+    return {
+      id: s.id, date: s.sale_date, customerId: s.customer_id, total: Number(s.total),
+      payment: s.payment, status: s.status, sellerId: s.seller_id,
+      seller: s.legacy_seller_name || profileById[s.seller_id] || '-', notifiedAt: s.notified_at,
+      items, profit
+    };
+  });
 
   state.campaigns = (campaigns.data||[]).map(c=>({
     id: c.id, name: c.name, startDate: c.start_date, endDate: c.end_date, forcedInactive: c.forced_inactive

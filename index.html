@@ -159,11 +159,12 @@
         <button type="submit" class="btn">Salvar produto</button>
         <button type="button" class="btn secondary" id="cancelProductEdit" style="display:none;">Cancelar edição</button>
       </form>
+      <p class="hint">O custo do produto (usado para calcular o lucro) é preenchido automaticamente pelo valor informado no último Pedido Mary Kay desse item.</p>
     </div>
     <div class="panel">
       <h2>Produtos cadastrados</h2>
       <table>
-        <thead><tr><th>Nome</th><th>Preço</th><th>Estoque</th><th></th></tr></thead>
+        <thead><tr><th>Nome</th><th>Preço</th><th>Custo</th><th>Estoque</th><th></th></tr></thead>
         <tbody id="productsBody"></tbody>
       </table>
       <div class="empty" id="productsEmpty" style="display:none;">Nenhum produto cadastrado ainda.</div>
@@ -254,7 +255,7 @@
         </div>
       </div>
       <table>
-        <thead><tr><th>Data</th><th>Cliente</th><th>Itens</th><th>Total</th><th>Pagamento</th><th>Vendedor</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Data</th><th>Cliente</th><th>Itens</th><th>Total</th><th>Lucro</th><th>Pagamento</th><th>Vendedor</th><th>Status</th><th></th></tr></thead>
         <tbody id="salesBody"></tbody>
       </table>
       <div class="empty" id="salesEmpty" style="display:none;">Nenhuma venda registrada ainda.</div>
@@ -330,6 +331,11 @@
   <section id="view-relatorios" class="view">
     <div class="panel">
       <h2>Filtrar período</h2>
+      <div class="row" style="margin-bottom:10px;">
+        <button type="button" class="btn secondary small" id="reportPresetHoje">Hoje</button>
+        <button type="button" class="btn secondary small" id="reportPresetSemana">Esta semana</button>
+        <button type="button" class="btn secondary small" id="reportPresetMes">Este mês</button>
+      </div>
       <div class="row">
         <div class="field"><label>De</label><input type="date" id="reportFrom"></div>
         <div class="field"><label>Até</label><input type="date" id="reportTo"></div>
@@ -342,7 +348,7 @@
     <div class="panel">
       <h2>Vendas no período</h2>
       <table>
-        <thead><tr><th>Data</th><th>Cliente</th><th>Total</th><th>Pagamento</th><th>Status</th></tr></thead>
+        <thead><tr><th>Data</th><th>Cliente</th><th>Total</th><th>Lucro</th><th>Pagamento</th><th>Status</th></tr></thead>
         <tbody id="reportSalesBody"></tbody>
       </table>
       <div class="empty" id="reportEmpty" style="display:none;">Nenhuma venda no período selecionado.</div>

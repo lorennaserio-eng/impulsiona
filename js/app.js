@@ -123,6 +123,7 @@ function renderProducts(){
     tr.innerHTML = `
       <td>${escapeHtml(p.name)}</td>
       <td>R$ ${money(p.price)}</td>
+      <td>R$ ${money(p.cost)}</td>
       <td>${p.stock} ${low ? '<span class="badge baixo">estoque baixo</span>' : ''}</td>
       <td class="actions-cell">
         <button class="btn small secondary" onclick="editProduct(${p.id})">Editar</button>
@@ -440,6 +441,7 @@ function renderSales(){
       <td>${escapeHtml(customerName(s.customerId))}</td>
       <td>${escapeHtml(itemsStr)}</td>
       <td>R$ ${money(s.total)}</td>
+      <td>R$ ${money(s.profit)}</td>
       <td>${escapeHtml(s.payment)}</td>
       <td>${escapeHtml(s.seller || '-')}</td>
       <td><span class="badge ${s.status==='Pago'?'pago':'pendente'}">${s.status}</span></td>
@@ -462,9 +464,9 @@ function renderDashboard(){
   const vendasCount = state.sales.length;
   const estoqueBaixo = state.products.filter(p=>p.stock <= (p.minStock ?? 5)).length;
 
-  const faturamentoMes = state.sales
-    .filter(s=>s.status==='Pago' && s.date.startsWith(monthKey))
-    .reduce((sum,s)=>sum+s.total,0);
+  const vendasPagasMes = state.sales.filter(s=>s.status==='Pago' && s.date.startsWith(monthKey));
+  const faturamentoMes = vendasPagasMes.reduce((sum,s)=>sum+s.total,0);
+  const lucroMes = vendasPagasMes.reduce((sum,s)=>sum+s.profit,0);
 
   const clientesAtendidos = new Set(state.sales.map(s=>s.customerId).filter(Boolean)).size;
   const estoqueDisponivel = state.products.reduce((sum,p)=>sum+(p.stock||0), 0);
@@ -472,6 +474,7 @@ function renderDashboard(){
   const cards = document.getElementById('dashCards');
   cards.innerHTML = `
     <div class="card"><div class="label">Faturamento do mês</div><div class="value">R$ ${money(faturamentoMes)}</div></div>
+    <div class="card"><div class="label">Lucro do mês</div><div class="value">R$ ${money(lucroMes)}</div></div>
     <div class="card"><div class="label">A receber (pendente)</div><div class="value warning">R$ ${money(totalPendente)}</div></div>
     <div class="card"><div class="label">Clientes atendidos</div><div class="value">${clientesAtendidos}</div></div>
     <div class="card"><div class="label">Estoque disponível (unid.)</div><div class="value">${estoqueDisponivel}</div></div>
@@ -958,11 +961,13 @@ function runReport(){
   const list = getFilteredSales();
   const totalPago = list.filter(s=>s.status==='Pago').reduce((sum,s)=>sum+s.total,0);
   const totalPendente = list.filter(s=>s.status==='Pendente').reduce((sum,s)=>sum+s.total,0);
+  const lucroTotal = list.reduce((sum,s)=>sum+s.profit,0);
   const count = list.length;
   const ticketMedio = count ? (totalPago+totalPendente)/count : 0;
 
   document.getElementById('reportCards').innerHTML = `
     <div class="card"><div class="label">Faturamento pago</div><div class="value">R$ ${money(totalPago)}</div></div>
+    <div class="card"><div class="label">Lucro</div><div class="value">R$ ${money(lucroTotal)}</div></div>
     <div class="card"><div class="label">Pendente</div><div class="value warning">R$ ${money(totalPendente)}</div></div>
     <div class="card"><div class="label">Nº de vendas</div><div class="value">${count}</div></div>
     <div class="card"><div class="label">Ticket médio</div><div class="value">R$ ${money(ticketMedio)}</div></div>
@@ -977,6 +982,7 @@ function runReport(){
       <td>${formatDate(s.date)}</td>
       <td>${escapeHtml(customerName(s.customerId))}</td>
       <td>R$ ${money(s.total)}</td>
+      <td>R$ ${money(s.profit)}</td>
       <td>${escapeHtml(s.payment)}</td>
       <td><span class="badge ${s.status==='Pago'?'pago':'pendente'}">${s.status}</span></td>`;
     body.appendChild(tr);
@@ -984,12 +990,33 @@ function runReport(){
 }
 document.getElementById('runReport').addEventListener('click', runReport);
 
+function setReportRange(from, to){
+  document.getElementById('reportFrom').value = from;
+  document.getElementById('reportTo').value = to;
+  runReport();
+}
+document.getElementById('reportPresetHoje').addEventListener('click', ()=>{
+  setReportRange(todayISO(), todayISO());
+});
+document.getElementById('reportPresetSemana').addEventListener('click', ()=>{
+  const d = new Date();
+  const diaSemana = d.getDay(); // 0 = domingo
+  const inicio = new Date(d);
+  inicio.setDate(d.getDate() - diaSemana);
+  setReportRange(inicio.toISOString().slice(0,10), todayISO());
+});
+document.getElementById('reportPresetMes').addEventListener('click', ()=>{
+  const d = new Date();
+  const inicio = new Date(d.getFullYear(), d.getMonth(), 1);
+  setReportRange(inicio.toISOString().slice(0,10), todayISO());
+});
+
 document.getElementById('exportCsv').addEventListener('click', ()=>{
   const list = getFilteredSales();
-  let csv = 'Data,Cliente,Itens,Total,Pagamento,Vendedor,Status\n';
+  let csv = 'Data,Cliente,Itens,Total,Lucro,Pagamento,Vendedor,Status\n';
   list.forEach(s=>{
     const itemsStr = s.items.map(i=>`${i.name} x${i.qty}`).join(' | ');
-    csv += `${formatDate(s.date)},"${customerName(s.customerId)}","${itemsStr}",${s.total.toFixed(2)},${s.payment},"${s.seller||''}",${s.status}\n`;
+    csv += `${formatDate(s.date)},"${customerName(s.customerId)}","${itemsStr}",${s.total.toFixed(2)},${s.profit.toFixed(2)},${s.payment},"${s.seller||''}",${s.status}\n`;
   });
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
