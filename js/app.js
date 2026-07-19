@@ -10,6 +10,11 @@ function formatDate(iso){
 function escapeHtml(str){
   return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+/* Escapa texto pra embutir dentro de uma string JS de aspas simples,
+   usada em atributos onclick="..." (atributo em aspas duplas). */
+function jsAttrEscape(str){
+  return String(str).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/\n/g,' ');
+}
 function currentMonthKey(){ return todayISO().slice(0,7); }
 
 /* ================= BOOT (chamado depois do login) ================= */
@@ -482,7 +487,7 @@ function renderReplenishReminders(){
       <td>${escapeHtml(l.productName)}</td>
       <td>${formatDate(l.lastDate)}</td>
       <td>${l.dias} dias</td>
-      <td class="actions-cell">${c && c.phone ? `<button class="btn small whatsapp" onclick="openComposer({customerId:${c.id}, scenario:'reposicao', extra:{produto:'${escapeHtml(l.productName).replace(/'/g,"\\'")}'}})">WhatsApp</button>` : ''}</td>`;
+      <td class="actions-cell">${c && c.phone ? `<button class="btn small whatsapp" onclick="openComposer({customerId:${c.id}, scenario:'reposicao', extra:{produto:'${jsAttrEscape(l.productName)}'}})">WhatsApp</button>` : ''}</td>`;
     body.appendChild(tr);
   });
 }
@@ -795,24 +800,55 @@ document.getElementById('saveGoalBtn').addEventListener('click', async ()=>{
   }
 });
 
-/* --- Aniversariantes do mês --- */
+/* --- Aniversariantes --- */
+function suggestGiftForCustomer(customerId){
+  const comprasCliente = {};
+  state.sales.filter(s=>s.customerId===customerId && s.status==='Pago').forEach(s=>{
+    s.items.forEach(i=>{ comprasCliente[i.name] = (comprasCliente[i.name]||0) + i.qty; });
+  });
+  const favorito = Object.entries(comprasCliente).sort((a,b)=>b[1]-a[1])[0];
+
+  const popularidadeGeral = {};
+  state.sales.filter(s=>s.status==='Pago').forEach(s=>{
+    s.items.forEach(i=>{ popularidadeGeral[i.name] = (popularidadeGeral[i.name]||0) + i.qty; });
+  });
+  const novidade = Object.entries(popularidadeGeral).sort((a,b)=>b[1]-a[1]).find(([name])=> !comprasCliente[name]);
+
+  if(favorito && novidade) return `${favorito[0]} (ela já ama) ou ${novidade[0]} (novidade em alta)`;
+  if(favorito) return `${favorito[0]}, que ela já compra bastante`;
+  if(novidade) return `${novidade[0]}, um dos mais vendidos do momento`;
+  return '';
+}
+
+document.getElementById('birthdayMonthSelect').addEventListener('change', ()=> renderBirthdays());
+
+let birthdayMonthInitialized = false;
 function renderBirthdays(){
-  const mesAtual = new Date().getMonth() + 1;
+  const select = document.getElementById('birthdayMonthSelect');
+  if(!birthdayMonthInitialized){
+    select.value = String(new Date().getMonth() + 1);
+    birthdayMonthInitialized = true;
+  }
+  const mes = parseInt(select.value, 10);
+
   const aniversariantes = state.customers
     .filter(c => c.birthDate)
     .map(c => ({ ...c, dia: parseInt(c.birthDate.split('-')[2], 10), mes: parseInt(c.birthDate.split('-')[1], 10) }))
-    .filter(c => c.mes === mesAtual)
+    .filter(c => c.mes === mes)
     .sort((a,b)=>a.dia-b.dia);
 
   const body = document.getElementById('birthdaysBody');
   body.innerHTML = '';
   document.getElementById('birthdaysEmpty').style.display = aniversariantes.length ? 'none' : 'block';
   aniversariantes.forEach(c=>{
+    const sugestao = suggestGiftForCustomer(c.id);
+    const sugestaoEscaped = jsAttrEscape(sugestao);
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHtml(c.name)}</td>
       <td>Dia ${c.dia}</td>
-      <td class="actions-cell">${c.phone ? `<button class="btn small whatsapp" onclick="openComposer({customerId:${c.id}, scenario:'promocao'})">Parabenizar</button>` : ''}</td>`;
+      <td>${sugestao ? escapeHtml(sugestao) : '-'}</td>
+      <td class="actions-cell">${c.phone ? `<button class="btn small whatsapp" onclick="openComposer({customerId:${c.id}, scenario:'aniversario', extra:{sugestao:'${sugestaoEscaped}'}})">Parabenizar</button>` : ''}</td>`;
     body.appendChild(tr);
   });
 }
@@ -1388,6 +1424,11 @@ const MESSAGE_TEMPLATES = {
     profissional: d => `Olá ${d.nome}, tudo bem? Já se passaram ${d.estagio} desde sua compra (${d.itens}) e gostaria de saber como está sendo sua experiência com os produtos. Ficou com alguma dúvida?`,
     amigavel: d => `Oi ${d.nome}! 😊 Faz ${d.estagio} que você comprou (${d.itens}) — como tá sendo usar os produtos? Qualquer dúvida, só chamar!`,
     direto: d => `Olá ${d.nome}, como está sua experiência com ${d.itens}? Alguma dúvida?`
+  },
+  aniversario: {
+    profissional: d => `Parabéns pelo seu dia, ${d.nome}! 🎉 Desejo muitas felicidades. Para comemorar, que tal conhecer ${d.sugestao || 'nossos produtos'}? Se quiser, te conto mais.`,
+    amigavel: d => `Parabéns, ${d.nome}! 🎂🎉 Muitas felicidades! Separei uma ideia de presentinho pra você: ${d.sugestao || 'dá uma olhada nas novidades'} 💕`,
+    direto: d => `Parabéns, ${d.nome}! 🎉 Sugestão de presente: ${d.sugestao || 'nossos produtos'}.`
   },
   livre: {
     profissional: d => `Olá ${d.nome}, `,

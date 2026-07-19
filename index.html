@@ -99,12 +99,29 @@
     </div>
 
     <div class="panel">
-      <h2>🎂 Aniversariantes do mês</h2>
+      <h2>🎂 Aniversariantes</h2>
+      <div class="field" style="max-width:220px;">
+        <label>Mês</label>
+        <select id="birthdayMonthSelect">
+          <option value="1">Janeiro</option>
+          <option value="2">Fevereiro</option>
+          <option value="3">Março</option>
+          <option value="4">Abril</option>
+          <option value="5">Maio</option>
+          <option value="6">Junho</option>
+          <option value="7">Julho</option>
+          <option value="8">Agosto</option>
+          <option value="9">Setembro</option>
+          <option value="10">Outubro</option>
+          <option value="11">Novembro</option>
+          <option value="12">Dezembro</option>
+        </select>
+      </div>
       <table>
-        <thead><tr><th>Cliente</th><th>Dia</th><th></th></tr></thead>
+        <thead><tr><th>Cliente</th><th>Dia</th><th>Sugestão de presente</th><th></th></tr></thead>
         <tbody id="birthdaysBody"></tbody>
       </table>
-      <div class="empty" id="birthdaysEmpty" style="display:none;">Nenhum aniversariante cadastrado para este mês.</div>
+      <div class="empty" id="birthdaysEmpty" style="display:none;">Nenhum aniversariante neste mês.</div>
     </div>
 
     <div class="panel">
@@ -556,6 +573,7 @@
         <option value="reengajamento">Reengajar cliente sumida</option>
         <option value="oportunidade">Convite: carreira Mary Kay</option>
         <option value="acompanhamento">Acompanhamento 2+2+2</option>
+        <option value="aniversario">Aniversário</option>
         <option value="livre">Mensagem livre</option>
       </select>
     </div>
