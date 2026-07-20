@@ -1851,3 +1851,31 @@ document.getElementById('runAutomationBtn').addEventListener('click', async ()=>
 
   await refreshAll();
 });
+
+document.getElementById('downloadBackupBtn').addEventListener('click', ()=>{
+  const backup = {
+    exportedAt: new Date().toISOString(),
+    source: 'Controle de Vendas Mary Kay',
+    data: {
+      products: state.products,
+      customers: state.customers,
+      sales: state.sales,
+      campaigns: state.campaigns,
+      campaignGoals: state.campaignGoals,
+      stockMovements: state.stockMovements,
+      purchaseOrders: state.purchaseOrders,
+      trainings: state.trainings,
+      followups: state.followups,
+      appointments: state.appointments,
+      profiles: state.profiles,
+      settings: state.settings
+    }
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `backup_controle_vendas_${todayISO()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
