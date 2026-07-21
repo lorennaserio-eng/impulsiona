@@ -17,6 +17,15 @@ function jsAttrEscape(str){
 }
 function currentMonthKey(){ return todayISO().slice(0,7); }
 
+/* Envolve cada tabela do app numa div com rolagem horizontal própria,
+   pra tabelas largas nunca empurrarem a página inteira pro lado no celular. */
+document.querySelectorAll('table').forEach(table=>{
+  const wrap = document.createElement('div');
+  wrap.className = 'table-scroll';
+  table.parentNode.insertBefore(wrap, table);
+  wrap.appendChild(table);
+});
+
 /* ================= BOOT (chamado depois do login) ================= */
 let currentUserRole = 'consultora';
 

@@ -17,7 +17,11 @@ body{
   font-family:'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
   background:var(--bg);
   color:var(--text);
+  overflow-x:hidden;
 }
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.table-scroll table{margin:0;}
+.table-scroll table th{white-space:nowrap;}
 h1,h2,h3{font-family:'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;}
 header{
   background:linear-gradient(135deg, var(--primary), var(--primary-dark));
@@ -221,6 +225,17 @@ textarea{
   cursor:pointer;font-size:13px;padding:6px 0;text-decoration:underline;
   font-family:inherit;display:block;margin:0 auto;
 }
+.password-wrap{position:relative;}
+.password-wrap input{padding-right:38px;}
+.password-toggle-btn{
+  position:absolute;right:6px;top:50%;transform:translateY(-50%);
+  background:none;border:none;padding:4px;cursor:pointer;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;
+}
+.password-toggle-btn:hover{color:var(--primary-dark);}
 @media(max-width:640px){
   .total-line{text-align:left;}
+  .sale-item-row{flex-wrap:wrap;}
+  .sale-item-row .field{flex:1 1 100% !important;max-width:none !important;min-width:0;}
+  .sale-item-row > button{width:100%;}
 }
