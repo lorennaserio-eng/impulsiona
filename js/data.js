@@ -74,7 +74,8 @@ async function refreshAll(){
   });
 
   state.campaigns = (campaigns.data||[]).map(c=>({
-    id: c.id, name: c.name, startDate: c.start_date, endDate: c.end_date, forcedInactive: c.forced_inactive, prize: c.prize || ''
+    id: c.id, name: c.name, startDate: c.start_date, endDate: c.end_date, forcedInactive: c.forced_inactive, prize: c.prize || '',
+    productId: c.product_id || null
   }));
 
   state.campaignGoals = (campaignGoals.data||[]).map(g=>({
@@ -205,7 +206,8 @@ async function apiCreatePurchaseOrder(date, orderNumber, items){
 /* ---------- Campanhas ---------- */
 async function apiCreateCampaign(c){
   const { error } = await supabaseClient.from('campaigns').insert({
-    name: c.name, start_date: c.startDate || null, end_date: c.endDate || null, prize: c.prize || null
+    name: c.name, start_date: c.startDate || null, end_date: c.endDate || null, prize: c.prize || null,
+    product_id: c.productId || null
   });
   if(error) throw error;
 }

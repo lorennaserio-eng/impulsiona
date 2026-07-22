@@ -123,6 +123,7 @@ create table if not exists campaigns (
   end_date date,
   forced_inactive boolean default false,
   prize text, -- opcional: descrição do prêmio da campanha
+  product_id bigint references products(id) on delete set null, -- opcional: campanha de um produto específico
   created_at timestamptz default now()
 );
 

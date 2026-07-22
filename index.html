@@ -499,6 +499,13 @@
           <div class="field"><label>Fim</label><input type="date" id="campaignEnd"></div>
           <div class="field"><label>Prêmio (opcional)</label><input type="text" id="campaignPrize" placeholder="Ex: Kit de maquiagem"></div>
         </div>
+        <div class="row">
+          <div class="field">
+            <label>Produto específico (opcional)</label>
+            <select id="campaignProduct"><option value="">Toda a venda (sem filtro)</option></select>
+          </div>
+        </div>
+        <p class="hint">Se você escolher um produto, o faturamento da campanha soma só as unidades desse produto vendidas — não a venda inteira.</p>
         <button type="submit" class="btn">Adicionar campanha</button>
       </form>
       <p class="hint">Para divulgar a campanha, use o botão WhatsApp com o cenário "Promoção / novidade" na aba Clientes — as vendas que vierem disso já contam automaticamente pra meta de cada consultora aqui.</p>
@@ -507,7 +514,7 @@
     <div class="panel">
       <h2>Campanhas</h2>
       <table>
-        <thead><tr><th>Nome</th><th>Período</th><th>Prêmio</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Nome</th><th>Período</th><th>Produto</th><th>Prêmio</th><th>Status</th><th></th></tr></thead>
         <tbody id="campaignsBody"></tbody>
       </table>
       <div class="empty" id="campaignsEmpty" style="display:none;">Nenhuma campanha cadastrada.</div>

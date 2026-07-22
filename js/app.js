@@ -693,13 +693,18 @@ contactBtn.addEventListener('click', async ()=>{
     return;
   }
   try{
-    const props = ['name','tel','email'];
+    const supported = await navigator.contacts.getProperties();
+    const props = ['name','tel','email'].filter(p=>supported.includes(p));
     const contacts = await navigator.contacts.select(props, {multiple:false});
     if(contacts && contacts.length){
       const c = contacts[0];
-      document.getElementById('customerName').value = (c.name && c.name[0]) || '';
+      const nome = (c.name && c.name[0]) || '';
+      document.getElementById('customerName').value = nome;
       document.getElementById('customerPhone').value = (c.tel && c.tel[0]) || '';
       document.getElementById('customerEmail').value = (c.email && c.email[0]) || '';
+      contactHint.textContent = nome
+        ? 'Toque no botão acima para escolher um contato do seu celular.'
+        : 'Esse contato não tinha nome salvo no celular — preencha o nome manualmente.';
     }
   }catch(err){
     alert('Não foi possível importar o contato: ' + err.message);
@@ -1013,9 +1018,10 @@ document.getElementById('campaignForm').addEventListener('submit', async e=>{
   const startDate = document.getElementById('campaignStart').value;
   const endDate = document.getElementById('campaignEnd').value;
   const prize = document.getElementById('campaignPrize').value.trim();
+  const productId = document.getElementById('campaignProduct').value || null;
   if(!name) return;
   try{
-    await apiCreateCampaign({name, startDate, endDate, prize});
+    await apiCreateCampaign({name, startDate, endDate, prize, productId});
     await refreshAll();
     document.getElementById('campaignForm').reset();
     renderCampaigns();
@@ -1056,15 +1062,18 @@ async function deleteCampaign(id){
 function renderCampaigns(){
   const body = document.getElementById('campaignsBody');
   if(!body) return;
+  document.getElementById('campaignProduct').innerHTML = '<option value="">Toda a venda (sem filtro)</option>' + productOptionsHtml().replace('<option value="">Selecione...</option>', '');
   body.innerHTML = '';
   document.getElementById('campaignsEmpty').style.display = state.campaigns.length ? 'none' : 'block';
   state.campaigns.slice().reverse().forEach(camp=>{
     const ativa = campaignIsActive(camp);
     const periodo = `${camp.startDate ? formatDate(camp.startDate) : '—'} a ${camp.endDate ? formatDate(camp.endDate) : '—'}`;
+    const produto = camp.productId ? state.products.find(p=>String(p.id)===String(camp.productId)) : null;
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHtml(camp.name)}</td>
       <td>${periodo}</td>
+      <td>${produto ? escapeHtml(produto.name) : '-'}</td>
       <td>${escapeHtml(camp.prize || '-')}</td>
       <td><span class="badge ${ativa ? 'pago' : 'pendente'}">${ativa ? 'Ativa' : 'Encerrada'}</span></td>
       <td class="actions-cell">
@@ -1095,22 +1104,52 @@ document.getElementById('closeCampaignDetail').addEventListener('click', ()=>{
   document.getElementById('campaignDetailPanel').style.display = 'none';
 });
 
+/* Soma faturamento/vendas/ranking de uma campanha. Se a campanha tem
+   productId, considera só os itens daquele produto dentro de cada venda
+   (não o valor da venda inteira). */
+function getCampaignSalesData(camp){
+  const vendasPeriodo = state.sales.filter(s=>
+    s.status==='Pago' &&
+    (!camp.startDate || s.date >= camp.startDate) &&
+    (!camp.endDate || s.date <= camp.endDate)
+  );
+
+  if(!camp.productId){
+    const porVendedor = {};
+    vendasPeriodo.forEach(s=>{ porVendedor[s.sellerId] = (porVendedor[s.sellerId]||0) + s.total; });
+    return {
+      faturamento: vendasPeriodo.reduce((sum,s)=>sum+s.total,0),
+      vendasCount: vendasPeriodo.length,
+      porVendedor
+    };
+  }
+
+  let faturamento = 0, vendasCount = 0;
+  const porVendedor = {};
+  vendasPeriodo.forEach(s=>{
+    const itensProduto = (s.items||[]).filter(i=>String(i.productId)===String(camp.productId));
+    if(!itensProduto.length) return;
+    const valor = itensProduto.reduce((sum,i)=>sum+i.qty*i.price,0);
+    faturamento += valor;
+    vendasCount++;
+    porVendedor[s.sellerId] = (porVendedor[s.sellerId]||0) + valor;
+  });
+  return {faturamento, vendasCount, porVendedor};
+}
+
 function renderCampaignDetail(id){
   const camp = state.campaigns.find(c=>c.id===id);
   if(!camp) return;
 
   document.getElementById('campaignDetailName').textContent = camp.name;
   const periodo = `${camp.startDate ? formatDate(camp.startDate) : '—'} a ${camp.endDate ? formatDate(camp.endDate) : '—'}`;
-  document.getElementById('campaignDetailInfo').textContent = camp.prize
-    ? `${periodo} · 🏆 Prêmio: ${camp.prize}`
-    : periodo;
+  const produto = camp.productId ? state.products.find(p=>String(p.id)===String(camp.productId)) : null;
+  const partes = [periodo];
+  if(produto) partes.push(`📦 Produto: ${produto.name}`);
+  if(camp.prize) partes.push(`🏆 Prêmio: ${camp.prize}`);
+  document.getElementById('campaignDetailInfo').textContent = partes.join(' · ');
 
-  const vendasPeriodo = state.sales.filter(s=>
-    s.status==='Pago' &&
-    (!camp.startDate || s.date >= camp.startDate) &&
-    (!camp.endDate || s.date <= camp.endDate)
-  );
-  const faturamentoPeriodo = vendasPeriodo.reduce((sum,s)=>sum+s.total,0);
+  const {faturamento: faturamentoPeriodo, vendasCount, porVendedor} = getCampaignSalesData(camp);
 
   let diasInfo = '';
   if(camp.endDate){
@@ -1120,7 +1159,7 @@ function renderCampaignDetail(id){
 
   document.getElementById('campaignDetailCards').innerHTML = `
     <div class="card"><div class="label">Faturamento da campanha</div><div class="value">R$ ${money(faturamentoPeriodo)}</div></div>
-    <div class="card"><div class="label">Vendas no período</div><div class="value">${vendasPeriodo.length}</div></div>
+    <div class="card"><div class="label">Vendas no período</div><div class="value">${vendasCount}</div></div>
     ${diasInfo ? `<div class="card"><div class="label">Prazo</div><div class="value">${diasInfo}</div></div>` : ''}
   `;
 
@@ -1128,7 +1167,7 @@ function renderCampaignDetail(id){
   document.getElementById('campaignGoalValue').value = myGoal ? myGoal.goalValue : '';
 
   const ranking = state.campaignGoals.filter(g=>g.campaignId===id).map(g=>{
-    const vendidoConsultora = vendasPeriodo.filter(s=>s.sellerId===g.sellerId).reduce((sum,s)=>sum+s.total,0);
+    const vendidoConsultora = porVendedor[g.sellerId] || 0;
     const pct = g.goalValue > 0 ? (vendidoConsultora / g.goalValue) * 100 : 0;
     return {...g, vendido: vendidoConsultora, pct};
   }).sort((a,b)=>b.pct-a.pct);
